@@ -20,6 +20,16 @@ Six checks cover replication, the statistical significance of the XGBoost lift, 
 
 **Which one to use depends on the lending strategy.** For a selective lender (a 2% target default rate), XGBoost approved **2,907 more applicants per 100,000** on unseen borrowers, ahead in every one of 200 tests: about 4% more approvals at the same default rate. Its profit advantage is **between about +5% and +37%**, depending on how much approved borrowers actually borrow (check 6d). For a lender approving nearly everyone, it offers no advantage, and the simpler scorecard is just as profitable.
 
+## How the checks map to current US guidance
+
+In April 2026, US banking regulators replaced SR 11-7 with [SR 26-2](https://www.federalreserve.gov/supervisionreg/srletters/SR2602.htm), "Revised Guidance on Model Risk Management". The new guidance is risk-based and less prescriptive, and keeps three core components of validation. The checks in this review cover all three:
+
+| SR 26-2 component | What it asks | Checks in this review |
+|---|---|---|
+| Conceptual soundness | Is the model's design and behaviour sensible? | Check 5: every key input moves risk in the expected direction; no applicant is scored riskier at age 62+; unconstrained inputs flagged |
+| Outcomes analysis | Do the model's outputs match reality? | Checks 1–3 and 6: replication, bootstrap lift, calibration with error bars, out-of-sample cut-offs |
+| Ongoing monitoring | Does performance hold up over time and across groups? | Check 4: PSI drift on new applicants and 11 segments (with a real drift test still needing out-of-time data) |
+
 ## Findings
 
 | # | Check | Finding | Rating |

@@ -4,7 +4,7 @@ Before a bank uses a credit model, a separate team checks whether its results ho
 
 ## Why this project
 
-At work, I compared forecast credit losses with what actually happened and assessed portfolios against their underwriting assumptions, so I've seen how far assumptions can drift from reality. Banks require every model to be checked by someone other than its builder before it's used. With two models of my own, I wanted to apply the same discipline to them, including to my own claims.
+At work, I compared forecast credit losses with what actually happened and assessed portfolios against their underwriting assumptions, so I've seen how far assumptions can drift from reality. Banks require every model to be checked by someone other than its builder before it's used. With two models of my own, I wanted to apply the same discipline to them, including to my own claims. The checks cover the three components that current US bank guidance ([SR 26-2](https://www.federalreserve.gov/supervisionreg/srletters/SR2602.htm), April 2026) expects validation to include: conceptual soundness, outcomes analysis and ongoing monitoring.
 
 ## What I set out to do
 
