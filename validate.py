@@ -460,14 +460,20 @@ def check_sensitivity(X_train, X_test, scorecard, challenger):
             grids[col] = np.unique(np.nanquantile(X_train[col], np.linspace(0.01, 0.99, 25)))
 
     print("An applicant counts as a violation if their PD ever moves against the expected")
-    print("direction as the input increases (tolerance 1e-9).\n")
+    print("direction as the input increases (tolerance 1e-9). Both models are built to pass")
+    print("this (one weight per input; monotone constraints), so it confirms the saved files")
+    print("behave as designed rather than independently proving good behaviour. The income")
+    print("sweep uses only applicants who reported an income.\n")
     print(f"{'Input':<30}{'Should':>7}{'Scorecard':>11}{'XGBoost':>9}"
           f"{'Avg PD low->high: Scorecard':>29}{'XGBoost':>18}")
     line("-")
     curves = {}
     wrong_total = {"Scorecard": 0, "XGBoost": 0}
     for col, direction in EXPECTED.items():
-        lr, xg = sweep(sample, col, grids[col], scorecard, challenger)
+        # Setting an income for applicants flagged "income missing" would create
+        # impossible rows, so the income sweep only uses applicants who reported one.
+        base = sample[sample["IncomeMissingFlag"] == 0] if col == "MonthlyIncome" else sample
+        lr, xg = sweep(base, col, grids[col], scorecard, challenger)
         curves[col] = (grids[col], lr.mean(axis=0), xg.mean(axis=0))
         counts = []
         for name, arr in [("Scorecard", lr), ("XGBoost", xg)]:
@@ -477,7 +483,7 @@ def check_sensitivity(X_train, X_test, scorecard, challenger):
             wrong = ((np.diff(arr, axis=1) * direction) < -1e-9).any(axis=1).sum()
             counts.append(int(wrong))
             wrong_total[name] += int(wrong)
-        shown = ["not used" if c is None else f"{c}/{N_SENS}" for c in counts]
+        shown = ["not used" if c is None else f"{c}/{len(base)}" for c in counts]
         lr_txt = (f"{lr.mean(axis=0)[0]:.2%} -> {lr.mean(axis=0)[-1]:.2%}"
                   if col in scorecard["features"] else "not used")
         print(f"{LABEL_SHORT[col]:<30}{'raise' if direction > 0 else 'lower':>7}{shown[0]:>11}"
@@ -486,7 +492,8 @@ def check_sensitivity(X_train, X_test, scorecard, challenger):
     for name in ["Scorecard", "XGBoost"]:
         n_inputs = sum(1 for c in EXPECTED if name == "XGBoost" or c in scorecard["features"])
         record("5 Sensitivity", f"{name}: {n_inputs} key inputs move risk the right way",
-               f"{wrong_total[name]} wrong-direction moves across {N_SENS} applicants",
+               f"{wrong_total[name]} wrong-direction moves across {N_SENS} applicants "
+               f"(confirms the designed constraints are present in the saved model)",
                "Pass" if wrong_total[name] == 0 else "Fail")
 
     # Age 62+: is anyone ever scored riskier at 62+ than at any younger age?
@@ -555,9 +562,14 @@ def check_sensitivity(X_train, X_test, scorecard, challenger):
 # ---------------------------------------------------------------------------
 # Check 6 - Challenge project 2's conclusions
 # ---------------------------------------------------------------------------
-def economics(X, apr=APR, lgd=LGD):
-    """Profit from each borrower if they repay, and loss if they default."""
-    drawn = X["RevolvingUtilizationOfUnsecuredLines"].clip(0, 1).values * CREDIT_LIMIT
+def economics(X, apr=APR, lgd=LGD, drawn_share=None):
+    """Profit from each borrower if they repay, and loss if they default.
+    By default the drawn balance is each borrower's own utilization (project 2's
+    assumption); drawn_share sets the same share of the limit for everyone instead."""
+    if drawn_share is None:
+        drawn = X["RevolvingUtilizationOfUnsecuredLines"].clip(0, 1).values * CREDIT_LIMIT
+    else:
+        drawn = np.full(len(X), drawn_share * CREDIT_LIMIT)
     ead = drawn + CCF * (CREDIT_LIMIT - drawn)
     return drawn * (apr - COST_OF_FUNDS) * YEARS, lgd * ead
 
@@ -581,6 +593,14 @@ def outcome(cutoff, p, y, gain, loss):
     ok = p <= cutoff
     profit = np.where(y[ok] == 1, -loss[ok], gain[ok]).sum() * 100_000 / len(p)
     return ok.mean(), y[ok].mean(), profit
+
+
+def pair_n(d):
+    return f"{d['LR']:,} / {d['XGB']:,}"
+
+
+def pair_u(d):
+    return f"{d['LR']:.1%} / {d['XGB']:.1%}"
 
 
 def best_appr(o):
@@ -636,7 +656,7 @@ def check_project2_claims(X_test, y_test, pd_lr, pd_xgb):
         return f"{fmt(mid)} ({fmt(lo)} to {fmt(hi)})"
 
     pct = lambda v: f"{v:.2%}"
-    pct0 = lambda v: f"{v:+.0%}"
+    pct1 = lambda v: f"{v:+.1%}"
     money = lambda v: f"${v / 1e6:.2f}M"
     num = lambda v: f"{v:+,.0f}"
     results, extras, overshoot = {}, {}, {}
@@ -651,7 +671,7 @@ def check_project2_claims(X_test, y_test, pd_lr, pd_xgb):
         print(f"      {'Default rate (unseen half)':<26}{band(dflt[:, 0], pct):>30}{band(dflt[:, 1], pct):>30}")
         print(f"      {'Profit per 100,000':<26}{band(prof[:, 0], money):>30}{band(prof[:, 1], money):>30}")
         print(f"      XGBoost extra approvals per 100,000: {band(extra, num)}")
-        print(f"      XGBoost profit uplift: {band(uplift, pct0)}; "
+        print(f"      XGBoost profit uplift: {band(uplift, pct1)}; "
               f"XGBoost ahead in {(uplift > 0).mean():.0%} of splits\n")
         if "target" in label:
             over = (dflt > TARGET_DEFAULT).mean(axis=0)
@@ -664,8 +684,9 @@ def check_project2_claims(X_test, y_test, pd_lr, pd_xgb):
     lo, mid, hi = np.percentile(up_t, [5, 50, 95])
     ex = np.median(extras[key_t])
     record("6 Project 2 claims", f"Profit uplift at {TARGET_DEFAULT:.0%} target, out of sample",
-           f"reported +{REPORTED_UPLIFT_2PCT:.0%}; out of sample median {mid:+.0%} "
-           f"(5th-95th {lo:+.0%} to {hi:+.0%}); extra approvals {ex:+,.0f} per 100,000 "
+           f"reported +{REPORTED_UPLIFT_2PCT:.0%}; out of sample median {mid:+.1%} "
+           f"(5th-95th {lo:+.1%} to {hi:+.1%}) under project 2's revenue assumption; "
+           f"extra approvals {ex:+,.0f} per 100,000 "
            f"(reported +{REPORTED_EXTRA_2PCT:,})",
            "Pass" if lo > 0 and abs(mid - REPORTED_UPLIFT_2PCT) < 0.10 else "Monitor")
     up_p = results["Profit-maximising cut-off"]
@@ -707,6 +728,48 @@ def check_project2_claims(X_test, y_test, pd_lr, pd_xgb):
            f"at {TARGET_DEFAULT:.0%} target XGBoost ahead in all ({st['Uplift_at_target'].min():+.0%} to "
            f"{st['Uplift_at_target'].max():+.0%}); at best cut-off {st['Uplift_at_best'].min():+.1%} to "
            f"{st['Uplift_at_best'].max():+.1%}, largest when margins are tightest", "Pass")
+
+    # 6d. The drawn-balance assumption: revenue is utilization x limit x margin, so a
+    #     model that approves heavier credit users earns more by construction.
+    print(f"\n6d. Drawn-balance assumption: where does the profit uplift come from?")
+    print("    Project 2 assumes each borrower keeps drawing their current utilization. Here the")
+    print("    same cut-offs are re-priced with everyone drawing a flat share of their limit.\n")
+    print(f"    {'Drawn balance':<22}{'Approved at 2% (LR / XGB)':>27}{'Avg utilization approved':>27}"
+          f"{'Uplift at 2%':>14}{'At best cut-off':>17}")
+    line("-")
+    util = X_test["RevolvingUtilizationOfUnsecuredLines"].clip(0, 1).values
+    drawn_rows = []
+    for label, share in [("Own utilization", None), ("Flat 30%", 0.30),
+                         ("Flat 50%", 0.50), ("Flat 70%", 0.70)]:
+        g, l = economics(X_test, drawn_share=share)
+        o, appr_n, appr_u = {}, {}, {}
+        for name, p in [("LR", pd_lr), ("XGB", pd_xgb)]:
+            c = cutoff_for_target(p, y_test, TARGET_DEFAULT)
+            ok = p <= c
+            appr_n[name], appr_u[name] = int(ok.sum()), util[ok].mean()
+            o[name + "_t"] = outcome(c, p, y_test, g, l)
+            o[name + "_p"] = outcome(cutoff_for_profit(p, y_test, g, l), p, y_test, g, l)
+        u_t = o["XGB_t"][2] / o["LR_t"][2] - 1
+        u_p = o["XGB_p"][2] / o["LR_p"][2] - 1
+        drawn_rows.append({"Drawn_balance": label, "Approved_LR": appr_n["LR"],
+                           "Approved_XGB": appr_n["XGB"], "Uplift_at_target": u_t,
+                           "Uplift_at_best": u_p})
+        print(f"    {label:<22}{pair_n(appr_n):>27}"
+              f"{pair_u(appr_u):>27}"
+              f"{u_t:>+14.1%}{u_p:>+17.1%}")
+    line("-")
+    dr = pd.DataFrame(drawn_rows)
+    dr.to_csv(OUT_DIR / "drawn_balance_scenarios.csv", index=False)
+    volume = dr.loc[0, "Approved_XGB"] / dr.loc[0, "Approved_LR"] - 1
+    own = dr.loc[0, "Uplift_at_target"]
+    flat = dr.loc[1:, "Uplift_at_target"]
+    print(f"    Volume effect (more approvals at the same default rate): {volume:+.1%}")
+    print(f"    Balance-mix effect (XGBoost approves heavier credit users): {own - flat.mean():+.1%} "
+          f"points, present only if current utilization predicts future balances")
+    record("6 Project 2 claims", "Profit uplift vs the drawn-balance assumption",
+           f"at {TARGET_DEFAULT:.0%} target: {own:+.1%} with own utilization, {flat.min():+.1%} to "
+           f"{flat.max():+.1%} with a flat drawn share; robust part is the volume effect "
+           f"({volume:+.1%} approvals)", "Monitor")
 
     # Chart: out-of-sample profit uplift at the 2% target
     plt = style_charts()

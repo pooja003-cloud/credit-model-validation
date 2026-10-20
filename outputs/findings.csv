@@ -10,12 +10,13 @@ Check,Test,Result,Rating
 4 Stability,"Largest feature or score PSI, new applicants",MonthlyIncome: 0.0004,Pass
 4 Segments,Scorecard segment calibration,3 of 11 segments off: Age 62+ (over); Never late (over); Any late payment (under) - refer age 62+ to fair-lending review,Monitor
 4 Segments,XGBoost segment calibration,0 of 11 segments off,Pass
-5 Sensitivity,Scorecard: 6 key inputs move risk the right way,0 wrong-direction moves across 500 applicants,Pass
-5 Sensitivity,XGBoost: 7 key inputs move risk the right way,0 wrong-direction moves across 500 applicants,Pass
+5 Sensitivity,Scorecard: 6 key inputs move risk the right way,0 wrong-direction moves across 500 applicants (confirms the designed constraints are present in the saved model),Pass
+5 Sensitivity,XGBoost: 7 key inputs move risk the right way,0 wrong-direction moves across 500 applicants (confirms the designed constraints are present in the saved model),Pass
 5 Sensitivity,Scorecard: no applicant riskier at age 62+,0 of 500 applicants,Pass
 5 Sensitivity,XGBoost: no applicant riskier at age 62+,0 of 500 applicants,Pass
 5 Sensitivity,XGBoost: inputs without monotone constraints,risk moves both ways for most applicants: Open credit lines and loans (500/500); Real estate loans (499/500); Number of dependents (447/500) - zigzags in sparse values look like noise,Monitor
-6 Project 2 claims,"Profit uplift at 2% target, out of sample","reported +37%; out of sample median +34% (5th-95th +28% to +41%); extra approvals +2,907 per 100,000 (reported +3,477)",Pass
+6 Project 2 claims,"Profit uplift at 2% target, out of sample","reported +37%; out of sample median +33.6% (5th-95th +27.7% to +41.5%) under project 2's revenue assumption; extra approvals +2,907 per 100,000 (reported +3,477)",Pass
 6 Project 2 claims,Profit uplift at profit-maximising cut-off,"reported +0.1% (1% steps); -0.4% at borrower level; out of sample median -0.8%, XGBoost ahead in 14% of splits - no advantage at the optimum",Monitor
 6 Project 2 claims,Cut-off set at exactly 2% holds on new borrowers,unseen half exceeds 2% in 50% (scorecard) and 42% (XGBoost) of splits - a lender needs a buffer below the target,Monitor
 6 Project 2 claims,Conclusions under 9 APR / LGD scenarios,"at 2% target XGBoost ahead in all (+34% to +45%); at best cut-off -0.4% to +4.5%, largest when margins are tightest",Pass
+6 Project 2 claims,Profit uplift vs the drawn-balance assumption,"at 2% target: +37.2% with own utilization, +4.7% to +4.7% with a flat drawn share; robust part is the volume effect (+4.7% approvals)",Monitor

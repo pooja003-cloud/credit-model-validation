@@ -121,7 +121,10 @@ CHECK 4 - STABILITY AND SEGMENT PERFORMANCE
 CHECK 5 - SENSITIVITY (500 test applicants, one input moved at a time)
 ==============================================================================
 An applicant counts as a violation if their PD ever moves against the expected
-direction as the input increases (tolerance 1e-9).
+direction as the input increases (tolerance 1e-9). Both models are built to pass
+this (one weight per input; monotone constraints), so it confirms the saved files
+behave as designed rather than independently proving good behaviour. The income
+sweep uses only applicants who reported an income.
 
 Input                          Should  Scorecard  XGBoost  Avg PD low->high: Scorecard           XGBoost
 ------------------------------------------------------------------------------
@@ -131,7 +134,7 @@ Payments 60-89 days late        raise      0/500    0/500              5.62% -> 
 Payments 90+ days late          raise      0/500    0/500              5.20% -> 24.16%   5.10% -> 29.83%
 Debt ratio                      raise   not used    0/500                     not used    3.75% -> 7.50%
 Age                             lower      0/500    0/500               8.52% -> 3.77%   17.79% -> 3.78%
-Monthly income                  lower      0/500    0/500               7.21% -> 3.80%    7.23% -> 5.09%
+Monthly income                  lower      0/393    0/393               7.35% -> 3.90%    7.12% -> 4.94%
 ------------------------------------------------------------------------------
 
 Age 62+ check (Reg B): highest PD at ages 62-95 vs lowest PD at ages 21-61
@@ -169,7 +172,7 @@ CHECK 6 - CHALLENGE PROJECT 2'S CONCLUSIONS
       Default rate (unseen half)        2.00% (1.71% to 2.24%)        1.98% (1.72% to 2.21%)
       Profit per 100,000          $23.64M ($21.45M to $25.74M)  $31.95M ($29.52M to $33.22M)
       XGBoost extra approvals per 100,000: +2,907 (+1,810 to +4,408)
-      XGBoost profit uplift: +34% (+28% to +41%); XGBoost ahead in 100% of splits
+      XGBoost profit uplift: +33.6% (+27.7% to +41.5%); XGBoost ahead in 100% of splits
 
       Splits where the unseen half exceeds the 2% target: scorecard 50%, XGBoost 42%
 
@@ -179,7 +182,7 @@ CHECK 6 - CHALLENGE PROJECT 2'S CONCLUSIONS
       Default rate (unseen half)        3.79% (3.64% to 3.92%)        3.62% (3.40% to 4.14%)
       Profit per 100,000          $45.55M ($44.38M to $46.67M)  $45.21M ($43.93M to $46.36M)
       XGBoost extra approvals per 100,000: -947 (-1,961 to +1,147)
-      XGBoost profit uplift: -1% (-2% to +1%); XGBoost ahead in 14% of splits
+      XGBoost profit uplift: -0.8% (-2.1% to +0.6%); XGBoost ahead in 14% of splits
 
 6c. Assumption stress test: XGBoost profit uplift over the scorecard (whole test set)
     APR   LGD       at 2% target   at best cut-off    best approval (LR / XGB)
@@ -196,6 +199,20 @@ CHECK 6 - CHALLENGE PROJECT 2'S CONCLUSIONS
 ------------------------------------------------------------------------------
     XGBoost behind the scorecard in 1 of 18 scenario results.
 
+6d. Drawn-balance assumption: where does the profit uplift come from?
+    Project 2 assumes each borrower keeps drawing their current utilization. Here the
+    same cut-offs are re-priced with everyone drawing a flat share of their limit.
+
+    Drawn balance           Approved at 2% (LR / XGB)   Avg utilization approved  Uplift at 2%  At best cut-off
+------------------------------------------------------------------------------
+    Own utilization                   22,074 / 23,117              15.4% / 19.3%        +37.2%            -0.4%
+    Flat 30%                          22,074 / 23,117              15.4% / 19.3%         +4.7%            +1.1%
+    Flat 50%                          22,074 / 23,117              15.4% / 19.3%         +4.7%            +0.3%
+    Flat 70%                          22,074 / 23,117              15.4% / 19.3%         +4.7%            +0.0%
+------------------------------------------------------------------------------
+    Volume effect (more approvals at the same default rate): +4.7%
+    Balance-mix effect (XGBoost approves heavier credit users): +32.4% points, present only if current utilization predicts future balances
+
 ==============================================================================
 FINDINGS SO FAR
 ==============================================================================
@@ -210,12 +227,13 @@ FINDINGS SO FAR
   [Pass   ] 4 Stability       Largest feature or score PSI, new applicants MonthlyIncome: 0.0004
   [Monitor] 4 Segments        Scorecard segment calibration            3 of 11 segments off: Age 62+ (over); Never late (over); Any late payment (under) - refer age 62+ to fair-lending review
   [Pass   ] 4 Segments        XGBoost segment calibration              0 of 11 segments off
-  [Pass   ] 5 Sensitivity     Scorecard: 6 key inputs move risk the right way 0 wrong-direction moves across 500 applicants
-  [Pass   ] 5 Sensitivity     XGBoost: 7 key inputs move risk the right way 0 wrong-direction moves across 500 applicants
+  [Pass   ] 5 Sensitivity     Scorecard: 6 key inputs move risk the right way 0 wrong-direction moves across 500 applicants (confirms the designed constraints are present in the saved model)
+  [Pass   ] 5 Sensitivity     XGBoost: 7 key inputs move risk the right way 0 wrong-direction moves across 500 applicants (confirms the designed constraints are present in the saved model)
   [Pass   ] 5 Sensitivity     Scorecard: no applicant riskier at age 62+ 0 of 500 applicants
   [Pass   ] 5 Sensitivity     XGBoost: no applicant riskier at age 62+ 0 of 500 applicants
   [Monitor] 5 Sensitivity     XGBoost: inputs without monotone constraints risk moves both ways for most applicants: Open credit lines and loans (500/500); Real estate loans (499/500); Number of dependents (447/500) - zigzags in sparse values look like noise
-  [Pass   ] 6 Project 2 claims Profit uplift at 2% target, out of sample reported +37%; out of sample median +34% (5th-95th +28% to +41%); extra approvals +2,907 per 100,000 (reported +3,477)
+  [Pass   ] 6 Project 2 claims Profit uplift at 2% target, out of sample reported +37%; out of sample median +33.6% (5th-95th +27.7% to +41.5%) under project 2's revenue assumption; extra approvals +2,907 per 100,000 (reported +3,477)
   [Monitor] 6 Project 2 claims Profit uplift at profit-maximising cut-off reported +0.1% (1% steps); -0.4% at borrower level; out of sample median -0.8%, XGBoost ahead in 14% of splits - no advantage at the optimum
   [Monitor] 6 Project 2 claims Cut-off set at exactly 2% holds on new borrowers unseen half exceeds 2% in 50% (scorecard) and 42% (XGBoost) of splits - a lender needs a buffer below the target
   [Pass   ] 6 Project 2 claims Conclusions under 9 APR / LGD scenarios  at 2% target XGBoost ahead in all (+34% to +45%); at best cut-off -0.4% to +4.5%, largest when margins are tightest
+  [Monitor] 6 Project 2 claims Profit uplift vs the drawn-balance assumption at 2% target: +37.2% with own utilization, +4.7% to +4.7% with a flat drawn share; robust part is the volume effect (+4.7% approvals)
