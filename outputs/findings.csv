@@ -19,4 +19,4 @@ Check,Test,Result,Rating
 6 Project 2 claims,Profit uplift at profit-maximising cut-off,"reported +0.1% (1% steps); -0.4% at borrower level; out of sample median -0.8%, XGBoost ahead in 14% of splits - no advantage at the optimum",Monitor
 6 Project 2 claims,Cut-off set at exactly 2% holds on new borrowers,unseen half exceeds 2% in 50% (scorecard) and 42% (XGBoost) of splits - a lender needs a buffer below the target,Monitor
 6 Project 2 claims,Conclusions under 9 APR / LGD scenarios,"at 2% target XGBoost ahead in all (+34% to +45%); at best cut-off -0.4% to +4.5%, largest when margins are tightest",Pass
-6 Project 2 claims,Profit uplift vs the drawn-balance assumption,"at 2% target: +37.2% with own utilization, +4.7% to +4.7% with a flat drawn share; robust part is the volume effect (+4.7% approvals)",Monitor
+6 Project 2 claims,Profit uplift vs the drawn-balance assumption,"at 2% target: +37.2% with own utilization, +4.7% with a flat drawn share; robust part is the volume effect (+4.7% approvals)",Monitor

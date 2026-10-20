@@ -670,7 +670,8 @@ def check_project2_claims(X_test, y_test, pd_lr, pd_xgb):
         print(f"      {'Approval rate':<26}{band(appr[:, 0], pct):>30}{band(appr[:, 1], pct):>30}")
         print(f"      {'Default rate (unseen half)':<26}{band(dflt[:, 0], pct):>30}{band(dflt[:, 1], pct):>30}")
         print(f"      {'Profit per 100,000':<26}{band(prof[:, 0], money):>30}{band(prof[:, 1], money):>30}")
-        print(f"      XGBoost extra approvals per 100,000: {band(extra, num)}")
+        print(f"      XGBoost extra approvals per 100,000: {band(extra, num)}; "
+              f"relative: {band(appr[:, 1] / appr[:, 0] - 1, pct1)}")
         print(f"      XGBoost profit uplift: {band(uplift, pct1)}; "
               f"XGBoost ahead in {(uplift > 0).mean():.0%} of splits\n")
         if "target" in label:
@@ -766,9 +767,11 @@ def check_project2_claims(X_test, y_test, pd_lr, pd_xgb):
     print(f"    Volume effect (more approvals at the same default rate): {volume:+.1%}")
     print(f"    Balance-mix effect (XGBoost approves heavier credit users): {own - flat.mean():+.1%} "
           f"points, present only if current utilization predicts future balances")
+    same = round(flat.min(), 3) == round(flat.max(), 3)
+    flat_txt = f"{flat.min():+.1%}" if same else f"{flat.min():+.1%} to {flat.max():+.1%}"
     record("6 Project 2 claims", "Profit uplift vs the drawn-balance assumption",
-           f"at {TARGET_DEFAULT:.0%} target: {own:+.1%} with own utilization, {flat.min():+.1%} to "
-           f"{flat.max():+.1%} with a flat drawn share; robust part is the volume effect "
+           f"at {TARGET_DEFAULT:.0%} target: {own:+.1%} with own utilization, {flat_txt} "
+           f"with a flat drawn share; robust part is the volume effect "
            f"({volume:+.1%} approvals)", "Monitor")
 
     # Chart: out-of-sample profit uplift at the 2% target

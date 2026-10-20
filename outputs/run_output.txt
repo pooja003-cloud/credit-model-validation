@@ -171,7 +171,7 @@ CHECK 6 - CHALLENGE PROJECT 2'S CONCLUSIONS
       Approval rate                  73.69% (71.20% to 75.96%)     76.85% (74.52% to 78.60%)
       Default rate (unseen half)        2.00% (1.71% to 2.24%)        1.98% (1.72% to 2.21%)
       Profit per 100,000          $23.64M ($21.45M to $25.74M)  $31.95M ($29.52M to $33.22M)
-      XGBoost extra approvals per 100,000: +2,907 (+1,810 to +4,408)
+      XGBoost extra approvals per 100,000: +2,907 (+1,810 to +4,408); relative: +4.0% (+2.5% to +6.2%)
       XGBoost profit uplift: +33.6% (+27.7% to +41.5%); XGBoost ahead in 100% of splits
 
       Splits where the unseen half exceeds the 2% target: scorecard 50%, XGBoost 42%
@@ -181,7 +181,7 @@ CHECK 6 - CHALLENGE PROJECT 2'S CONCLUSIONS
       Approval rate                  92.48% (92.05% to 92.87%)     91.48% (90.47% to 93.69%)
       Default rate (unseen half)        3.79% (3.64% to 3.92%)        3.62% (3.40% to 4.14%)
       Profit per 100,000          $45.55M ($44.38M to $46.67M)  $45.21M ($43.93M to $46.36M)
-      XGBoost extra approvals per 100,000: -947 (-1,961 to +1,147)
+      XGBoost extra approvals per 100,000: -947 (-1,961 to +1,147); relative: -1.0% (-2.1% to +1.2%)
       XGBoost profit uplift: -0.8% (-2.1% to +0.6%); XGBoost ahead in 14% of splits
 
 6c. Assumption stress test: XGBoost profit uplift over the scorecard (whole test set)
@@ -236,4 +236,4 @@ FINDINGS SO FAR
   [Monitor] 6 Project 2 claims Profit uplift at profit-maximising cut-off reported +0.1% (1% steps); -0.4% at borrower level; out of sample median -0.8%, XGBoost ahead in 14% of splits - no advantage at the optimum
   [Monitor] 6 Project 2 claims Cut-off set at exactly 2% holds on new borrowers unseen half exceeds 2% in 50% (scorecard) and 42% (XGBoost) of splits - a lender needs a buffer below the target
   [Pass   ] 6 Project 2 claims Conclusions under 9 APR / LGD scenarios  at 2% target XGBoost ahead in all (+34% to +45%); at best cut-off -0.4% to +4.5%, largest when margins are tightest
-  [Monitor] 6 Project 2 claims Profit uplift vs the drawn-balance assumption at 2% target: +37.2% with own utilization, +4.7% to +4.7% with a flat drawn share; robust part is the volume effect (+4.7% approvals)
+  [Monitor] 6 Project 2 claims Profit uplift vs the drawn-balance assumption at 2% target: +37.2% with own utilization, +4.7% with a flat drawn share; robust part is the volume effect (+4.7% approvals)
