@@ -1,0 +1,21 @@
+Check,Test,Result,Rating
+1 Replication,Scorecard AUC reproduces,"reported 0.861, reproduced 0.8607",Pass
+1 Replication,XGBoost AUC reproduces,"reported 0.868, reproduced 0.8676",Pass
+1 Data integrity,Scorecard AUC without train/test twins,0.8607 -> 0.8605 (-0.0002),Pass
+1 Data integrity,XGBoost AUC without train/test twins,0.8676 -> 0.8673 (-0.0003),Pass
+1 Data integrity,Duplicate borrowers across train/test,174 test rows (0.58%) have a training twin,Pass
+2 Lift,XGBoost AUC lift over scorecard,+0.0069 (95% interval +0.0045 to +0.0095); XGBoost wins 100.0% of resamples,Pass
+3 Calibration,Scorecard deciles outside 95% range,"4 overstate, 1 understate (deciles 1, 2, 3, 5, 10)",Monitor
+3 Calibration,XGBoost deciles outside 95% range,"1 overstate, 1 understate (deciles 3, 9)",Monitor
+4 Stability,"Largest feature or score PSI, new applicants",MonthlyIncome: 0.0004,Pass
+4 Segments,Scorecard segment calibration,3 of 11 segments off: Age 62+ (over); Never late (over); Any late payment (under) - refer age 62+ to fair-lending review,Monitor
+4 Segments,XGBoost segment calibration,0 of 11 segments off,Pass
+5 Sensitivity,Scorecard: 6 key inputs move risk the right way,0 wrong-direction moves across 500 applicants,Pass
+5 Sensitivity,XGBoost: 7 key inputs move risk the right way,0 wrong-direction moves across 500 applicants,Pass
+5 Sensitivity,Scorecard: no applicant riskier at age 62+,0 of 500 applicants,Pass
+5 Sensitivity,XGBoost: no applicant riskier at age 62+,0 of 500 applicants,Pass
+5 Sensitivity,XGBoost: inputs without monotone constraints,risk moves both ways for most applicants: Open credit lines and loans (500/500); Real estate loans (499/500); Number of dependents (447/500) - zigzags in sparse values look like noise,Monitor
+6 Project 2 claims,"Profit uplift at 2% target, out of sample","reported +37%; out of sample median +34% (5th-95th +28% to +41%); extra approvals +2,907 per 100,000 (reported +3,477)",Pass
+6 Project 2 claims,Profit uplift at profit-maximising cut-off,"reported +0.1% (1% steps); -0.4% at borrower level; out of sample median -0.8%, XGBoost ahead in 14% of splits - no advantage at the optimum",Monitor
+6 Project 2 claims,Cut-off set at exactly 2% holds on new borrowers,unseen half exceeds 2% in 50% (scorecard) and 42% (XGBoost) of splits - a lender needs a buffer below the target,Monitor
+6 Project 2 claims,Conclusions under 9 APR / LGD scenarios,"at 2% target XGBoost ahead in all (+34% to +45%); at best cut-off -0.4% to +4.5%, largest when margins are tightest",Pass

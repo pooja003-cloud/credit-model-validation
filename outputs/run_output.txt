@@ -1,0 +1,221 @@
+==============================================================================
+CREDIT MODEL VALIDATION - SCORECARD (project 1) AND XGBOOST (project 2)
+==============================================================================
+Data: 150,000 borrowers | same split as both projects: 120,000 train / 30,000 test
+
+==============================================================================
+CHECK 1 - REPLICATION AND DATA INTEGRITY
+==============================================================================
+1a. Reproduce reported hold-out AUC from the saved model files
+    Model         Reported  Reproduced   Match
+    Scorecard        0.861      0.8607     yes
+    XGBoost          0.868      0.8676     yes
+
+1b. Exact duplicate borrowers in the data
+    Rows that have an identical twin: 960 (0.64%) in 344 groups
+    Identical features but different outcomes: 7 groups
+    Default rate among duplicated rows: 3.33% (all rows: 6.68%)
+
+1c. Test borrowers with an identical twin in the training set: 174 of 30,000 (0.58%)
+    Default rate among them: 9.20%
+    Model         AUC all test   AUC without twins   Change
+    Scorecard           0.8607              0.8605  -0.0002
+    XGBoost             0.8676              0.8673  -0.0003
+
+==============================================================================
+CHECK 2 - IS THE XGBOOST LIFT REAL? (paired bootstrap, 1,000 resamples)
+==============================================================================
+                           AUC          95% interval    Gini          95% interval
+------------------------------------------------------------------------------
+Scorecard               0.8607       0.8523 - 0.8695  0.7214       0.7046 - 0.7390
+XGBoost                 0.8676       0.8596 - 0.8761  0.7352       0.7192 - 0.7522
+Difference (XGB - LR)  +0.0069     +0.0045 - +0.0095
+------------------------------------------------------------------------------
+XGBoost beats the scorecard in 100.0% of resamples.
+Note: the two models' individual intervals overlap, but the paired difference is what matters - both are scored on the same borrowers in every resample.
+
+==============================================================================
+CHECK 3 - CALIBRATION WITH ERROR BARS (exact 95% binomial interval per decile)
+==============================================================================
+A decile is flagged only if the model's average predicted PD falls outside the range
+of true default rates consistent with the defaults actually observed.
+
+Scorecard
+  Decile   Defaults   Actual          95% range  Predicted  Verdict
+  1              11    0.37%      0.18% - 0.66%      0.93%  OVERSTATES
+  2              16    0.53%      0.31% - 0.86%      1.29%  OVERSTATES
+  3              24    0.80%      0.51% - 1.19%      1.61%  OVERSTATES
+  4              45    1.50%      1.10% - 2.00%      1.96%  ok
+  5              55    1.83%      1.38% - 2.38%      2.38%  OVERSTATES
+  6              82    2.73%      2.18% - 3.38%      3.04%  ok
+  7             139    4.63%      3.91% - 5.45%      4.24%  ok
+  8             211    7.03%      6.14% - 8.01%      6.43%  ok
+  9             330   11.00%     9.90% - 12.17%     10.36%  ok
+  10           1092   36.40%    34.68% - 38.15%     34.26%  UNDERSTATES
+  Flagged deciles: 4 overstate risk, 1 understate risk (1, 2, 3, 5, 10)
+
+XGBoost
+  Decile   Defaults   Actual          95% range  Predicted  Verdict
+  1              12    0.40%      0.21% - 0.70%      0.50%  ok
+  2              18    0.60%      0.36% - 0.95%      0.77%  ok
+  3              19    0.63%      0.38% - 0.99%      1.05%  OVERSTATES
+  4              40    1.33%      0.95% - 1.81%      1.37%  ok
+  5              49    1.63%      1.21% - 2.15%      1.83%  ok
+  6              76    2.53%      2.00% - 3.16%      2.68%  ok
+  7             121    4.03%      3.36% - 4.80%      4.05%  ok
+  8             211    7.03%      6.14% - 8.01%      6.17%  ok
+  9             352   11.73%    10.60% - 12.94%     10.43%  UNDERSTATES
+  10           1107   36.90%    35.17% - 38.66%     37.92%  ok
+  Flagged deciles: 1 overstate risk, 1 understate risk (3, 9)
+
+With 20 decile tests at 95% confidence, about one flag is expected by chance alone.
+
+==============================================================================
+CHECK 4 - STABILITY AND SEGMENT PERFORMANCE
+==============================================================================
+4a. Population Stability Index vs the training data (<0.10 stable, 0.10-0.25 monitor, >0.25 shift)
+    New applicants: 101,503 borrowers from cs-test.csv (no outcomes)
+
+    Variable                                    Test set  New applicants
+------------------------------------------------------------------------------
+    RevolvingUtilizationOfUnsecuredLines          0.0004          0.0002
+    age                                           0.0002          0.0001
+    NumberOfTime30-59DaysPastDueNotWorse          0.0000          0.0001
+    MonthlyIncome                                 0.0006          0.0004
+    NumberOfOpenCreditLinesAndLoans               0.0002          0.0001
+    NumberOfTimes90DaysLate                       0.0000          0.0001
+    NumberRealEstateLoansOrLines                  0.0001          0.0001
+    NumberOfTime60-89DaysPastDueNotWorse          0.0000          0.0001
+    NumberOfDependents                            0.0000          0.0001
+    DebtRatio                                     0.0002          0.0001
+    Scorecard PD                                  0.0007          0.0003
+    XGBoost PD                                    0.0004          0.0004
+------------------------------------------------------------------------------
+    Largest shift on new applicants: MonthlyIncome (PSI 0.0004)
+    Scorecard PD: mean on training 6.68%, new applicants 6.70%
+    XGBoost PD: mean on training 6.68%, new applicants 6.70%
+
+4b. Segment performance on the test set
+    AUC inside a segment is naturally lower than overall: the segment removes some of
+    the variation the model uses. Calibration is flagged (*) when the predicted rate
+    falls outside the exact 95% range of the actual default rate.
+
+    Segment                  Borrowers   Actual         95% range  Scorecard   XGBoost  AUC LR  AUC XGB
+------------------------------------------------------------------------------
+    Age under 30                 1,738   13.06%   11.51% - 14.74%    12.57%    12.92%    0.825    0.830
+    Age 30-44                    7,820    9.87%    9.22% - 10.55%     9.54%     9.78%    0.842    0.849
+    Age 45-61                   12,130    6.56%     6.13% - 7.02%     6.49%     6.57%    0.847    0.854
+    Age 62+                      8,312    2.53%     2.20% - 2.89%     2.93%*    2.62%    0.849    0.860
+    Income reported             23,944    6.91%     6.59% - 7.24%     6.92%     6.93%    0.855    0.860
+    Income missing               6,056    5.78%     5.20% - 6.40%     5.59%     5.66%    0.883    0.892
+    Utilization under 30%       18,535    2.19%     1.98% - 2.41%     2.29%     2.02%    0.799    0.807
+    Utilization 30-90%           7,361    9.17%     8.52% - 9.85%     8.84%     9.35%    0.762    0.770
+    Utilization 90%+             4,104   22.51%   21.24% - 23.82%    22.42%    22.91%    0.786    0.800
+    Never late                  24,000    2.80%     2.59% - 3.01%     3.46%*    2.95%    0.784    0.794
+    Any late payment             6,000   22.23%   21.19% - 23.31%    19.44%*   21.60%    0.771    0.772
+------------------------------------------------------------------------------
+    Scorecard segments outside 95% range: Age 62+ (over), Never late (over), Any late payment (under)
+    XGBoost segments outside 95% range: none
+
+==============================================================================
+CHECK 5 - SENSITIVITY (500 test applicants, one input moved at a time)
+==============================================================================
+An applicant counts as a violation if their PD ever moves against the expected
+direction as the input increases (tolerance 1e-9).
+
+Input                          Should  Scorecard  XGBoost  Avg PD low->high: Scorecard           XGBoost
+------------------------------------------------------------------------------
+Revolving utilization           raise      0/500    0/500              2.66% -> 15.80%   2.84% -> 16.64%
+Payments 30-59 days late        raise      0/500    0/500              5.21% -> 16.29%   5.06% -> 17.68%
+Payments 60-89 days late        raise      0/500    0/500              5.62% -> 16.72%   5.62% -> 18.35%
+Payments 90+ days late          raise      0/500    0/500              5.20% -> 24.16%   5.10% -> 29.83%
+Debt ratio                      raise   not used    0/500                     not used    3.75% -> 7.50%
+Age                             lower      0/500    0/500               8.52% -> 3.77%   17.79% -> 3.78%
+Monthly income                  lower      0/500    0/500               7.21% -> 3.80%    7.23% -> 5.09%
+------------------------------------------------------------------------------
+
+Age 62+ check (Reg B): highest PD at ages 62-95 vs lowest PD at ages 21-61
+  Scorecard  applicants scored riskier at some age 62+: 0 of 500
+  XGBoost    applicants scored riskier at some age 62+: 0 of 500
+
+Inputs without a monotone constraint in XGBoost (average PD of the 500 applicants)
+  Open credit lines and loans: XGBoost moves both ways for 500 of 500 applicants
+    value          0       3       6       9      12      15      18      21      24      27      30
+    XGBoost    7.71%   5.73%   5.69%   6.71%   7.20%   9.01%   8.90%  10.26%   8.33%  10.82%  13.19%
+    Scorecard  5.16%   5.57%   6.00%   6.47%   6.97%   7.50%   8.07%   8.68%   9.33%   9.56%   9.56%
+  Real estate loans: XGBoost moves both ways for 499 of 500 applicants
+    value          0       1       2       3       4       5       6
+    XGBoost    6.35%   5.62%   6.03%   7.41%   8.95%  12.60%   9.53%
+    Scorecard  5.85%   6.33%   6.84%   7.39%   7.98%   7.98%   7.98%
+  Number of dependents: XGBoost moves both ways for 447 of 500 applicants
+    value          0       1       2       3       4       5       6
+    XGBoost    6.10%   6.49%   6.46%   6.74%   7.02%   7.67%   9.04%
+    Scorecard  6.13%   6.31%   6.50%   6.69%   6.88%   6.88%   6.88%
+
+==============================================================================
+CHECK 6 - CHALLENGE PROJECT 2'S CONCLUSIONS
+==============================================================================
+6a. Cut-off precision: project 2 tried approval rates in 1% steps
+    Scorecard  best profit on 1% steps $45.49M | best at any borrower $45.76M (92.43% approved)
+    XGBoost    best profit on 1% steps $45.52M | best at any borrower $45.58M (90.78% approved)
+    XGBoost uplift at the profit-maximising cut-off: +0.1% on 1% steps, -0.4% at borrower level
+
+6b. Out-of-sample cut-offs: chosen on a random half of the test set, applied to the
+    other half. Repeated over 200 random splits.
+
+    2% target default rate - median across splits (5th to 95th percentile)
+                                                     Scorecard                       XGBoost
+      Approval rate                  73.69% (71.20% to 75.96%)     76.85% (74.52% to 78.60%)
+      Default rate (unseen half)        2.00% (1.71% to 2.24%)        1.98% (1.72% to 2.21%)
+      Profit per 100,000          $23.64M ($21.45M to $25.74M)  $31.95M ($29.52M to $33.22M)
+      XGBoost extra approvals per 100,000: +2,907 (+1,810 to +4,408)
+      XGBoost profit uplift: +34% (+28% to +41%); XGBoost ahead in 100% of splits
+
+      Splits where the unseen half exceeds the 2% target: scorecard 50%, XGBoost 42%
+
+    Profit-maximising cut-off - median across splits (5th to 95th percentile)
+                                                     Scorecard                       XGBoost
+      Approval rate                  92.48% (92.05% to 92.87%)     91.48% (90.47% to 93.69%)
+      Default rate (unseen half)        3.79% (3.64% to 3.92%)        3.62% (3.40% to 4.14%)
+      Profit per 100,000          $45.55M ($44.38M to $46.67M)  $45.21M ($43.93M to $46.36M)
+      XGBoost extra approvals per 100,000: -947 (-1,961 to +1,147)
+      XGBoost profit uplift: -1% (-2% to +1%); XGBoost ahead in 14% of splits
+
+6c. Assumption stress test: XGBoost profit uplift over the scorecard (whole test set)
+    APR   LGD       at 2% target   at best cut-off    best approval (LR / XGB)
+------------------------------------------------------------------------------
+    15%   60%             +38.6%             +0.6%                   92% / 91%
+    15%   80%             +42.5%             +2.4%                   91% / 90%
+    15%   90%             +44.9%             +4.5%                   90% / 87%
+    20%   60%             +35.3%             +0.4%                   93% / 94%
+    20%   80%             +37.2%             -0.4%                   92% / 91%
+    20%   90%             +38.2%             +0.3%                   92% / 91%
+    25%   60%             +34.0%             +0.4%                   96% / 96%
+    25%   80%             +35.2%             +0.4%                   94% / 94%
+    25%   90%             +35.9%             +0.1%                   93% / 94%
+------------------------------------------------------------------------------
+    XGBoost behind the scorecard in 1 of 18 scenario results.
+
+==============================================================================
+FINDINGS SO FAR
+==============================================================================
+  [Pass   ] 1 Replication     Scorecard AUC reproduces                 reported 0.861, reproduced 0.8607
+  [Pass   ] 1 Replication     XGBoost AUC reproduces                   reported 0.868, reproduced 0.8676
+  [Pass   ] 1 Data integrity  Scorecard AUC without train/test twins   0.8607 -> 0.8605 (-0.0002)
+  [Pass   ] 1 Data integrity  XGBoost AUC without train/test twins     0.8676 -> 0.8673 (-0.0003)
+  [Pass   ] 1 Data integrity  Duplicate borrowers across train/test    174 test rows (0.58%) have a training twin
+  [Pass   ] 2 Lift            XGBoost AUC lift over scorecard          +0.0069 (95% interval +0.0045 to +0.0095); XGBoost wins 100.0% of resamples
+  [Monitor] 3 Calibration     Scorecard deciles outside 95% range      4 overstate, 1 understate (deciles 1, 2, 3, 5, 10)
+  [Monitor] 3 Calibration     XGBoost deciles outside 95% range        1 overstate, 1 understate (deciles 3, 9)
+  [Pass   ] 4 Stability       Largest feature or score PSI, new applicants MonthlyIncome: 0.0004
+  [Monitor] 4 Segments        Scorecard segment calibration            3 of 11 segments off: Age 62+ (over); Never late (over); Any late payment (under) - refer age 62+ to fair-lending review
+  [Pass   ] 4 Segments        XGBoost segment calibration              0 of 11 segments off
+  [Pass   ] 5 Sensitivity     Scorecard: 6 key inputs move risk the right way 0 wrong-direction moves across 500 applicants
+  [Pass   ] 5 Sensitivity     XGBoost: 7 key inputs move risk the right way 0 wrong-direction moves across 500 applicants
+  [Pass   ] 5 Sensitivity     Scorecard: no applicant riskier at age 62+ 0 of 500 applicants
+  [Pass   ] 5 Sensitivity     XGBoost: no applicant riskier at age 62+ 0 of 500 applicants
+  [Monitor] 5 Sensitivity     XGBoost: inputs without monotone constraints risk moves both ways for most applicants: Open credit lines and loans (500/500); Real estate loans (499/500); Number of dependents (447/500) - zigzags in sparse values look like noise
+  [Pass   ] 6 Project 2 claims Profit uplift at 2% target, out of sample reported +37%; out of sample median +34% (5th-95th +28% to +41%); extra approvals +2,907 per 100,000 (reported +3,477)
+  [Monitor] 6 Project 2 claims Profit uplift at profit-maximising cut-off reported +0.1% (1% steps); -0.4% at borrower level; out of sample median -0.8%, XGBoost ahead in 14% of splits - no advantage at the optimum
+  [Monitor] 6 Project 2 claims Cut-off set at exactly 2% holds on new borrowers unseen half exceeds 2% in 50% (scorecard) and 42% (XGBoost) of splits - a lender needs a buffer below the target
+  [Pass   ] 6 Project 2 claims Conclusions under 9 APR / LGD scenarios  at 2% target XGBoost ahead in all (+34% to +45%); at best cut-off -0.4% to +4.5%, largest when margins are tightest
